@@ -1,0 +1,1363 @@
+---
+title: '"Better two than one: considering female´s morphology increases the understanding
+  of Anolis diversification"'
+author: "Rodriguez-Rodriguez J.D. & Calderon-Espinosa M.L."
+date: "`r Sys.Date()`"
+output: html_document
+---
+```{r}
+#Clean workspace
+#rm(list=ls())
+#Call packages
+library(ape)
+library(factoextra)
+library(devtools)
+library(MVN)
+library(mvnormtest)
+library(bestNormalize)
+library(mnormt)
+library(nortest)
+library(permute)
+library(MASS)
+library(tidyverse)
+library(klaR)
+library(pander)
+library(dplyr)
+library(ggplot2)
+library(grid)
+library(gridExtra)
+library(vegan)
+library(car)
+library(geiger)
+library(nlme)
+library(phytools)
+library(maps)
+library(phangorn)
+library(dplyr)
+library(stats)
+library(cluster)
+library(surface)
+library(ggpubr)
+library(plyr)
+```
+```{r}
+#Load data with mean values per species
+data<-read.csv("species.csv",header = TRUE,sep=",")
+#Create separate objects for each variable
+data<-textshape::column_to_rownames(data, loc = 1)
+m_names = row.names(data)
+f_names = row.names(data)
+CLADE = as.factor((data)[,1])
+f_SVL = as.numeric((data)[,2])
+f_TL = as.numeric((data)[,3])
+f_FlL = as.numeric((data)[,4])
+f_HlL = as.numeric((data)[,5])
+f_TrL = as.numeric((data)[,6])
+f_HW = as.numeric((data)[,7])
+f_HH = as.numeric((data)[,8])
+f_HL = as.numeric((data)[,9])
+f_LN = as.numeric((data)[,10])
+m_SVL = as.numeric((data)[,11])
+m_TL = as.numeric((data)[,12])
+m_FlL = as.numeric((data)[,13])
+m_HlL = as.numeric((data)[,14])
+m_TrL = as.numeric((data)[,15])
+m_HW = as.numeric((data)[,16])
+m_HH = as.numeric((data)[,17])
+m_HL = as.numeric((data)[,18])
+m_LN = as.numeric((data)[,19])
+MT =as.factor((data)[,20])
+#Natural logaarithm transformation of variables
+#log function uses by default natural algorithms
+log_f_SVL<-log10(f_SVL)
+log_f_FlL<-log10(f_FlL)
+log_f_HlL<-log10(f_HlL)
+log_f_TrL<-log10(f_TrL)
+log_f_HW<-log10(f_HW)
+log_f_HH<-log10(f_HH)
+log_f_HL<-log10(f_HL)
+log_f_LN<-log10(f_LN)
+log_m_SVL<-log10(m_SVL)
+log_m_FlL<-log10(m_FlL)
+log_m_HlL<-log10(m_HlL)
+log_m_TrL<-log10(m_TrL)
+log_m_HW<-log10(m_HW)
+log_m_HH<-log10(m_HH)
+log_m_HL<-log10(m_HL)
+log_m_LN<-log10(m_LN)
+#size correction (w/o phylogeny)
+f_regFlL = lm(log_f_SVL ~ log_f_FlL) 
+f_regHlL = lm(log_f_SVL ~ log_f_HlL) 
+f_regTrL = lm(log_f_SVL ~ log_f_TrL)
+f_regHW = lm(log_f_SVL ~ log_f_HW)
+f_regHH = lm(log_f_SVL ~ log_f_HH) 
+f_regHL = lm(log_f_SVL ~ log_f_HL) 
+f_regLN = lm(log_f_SVL ~ log_f_LN) 
+f_FlL.res = f_regFlL$resid
+f_HlL.res = f_regHlL$resid
+f_TrL.res = f_regTrL$resid
+f_HW.res = f_regHW$resid
+f_HH.res = f_regHH$resid
+f_HL.res = f_regHL$resid
+f_LN.res = f_regLN$resid
+f_names = row.names(data)
+f_log.data.res = data.frame(cbind(log_f_SVL, f_FlL.res, f_HlL.res, f_TrL.res, f_HW.res, f_HH.res, f_HL.res, f_LN.res),row.names = f_names)
+m_regFlL = lm(m_SVL ~ log_m_FlL) 
+m_regHlL = lm(m_SVL ~ log_m_HlL) 
+m_regTrL = lm(m_SVL ~ log_m_TrL)
+m_regHW = lm(m_SVL ~ log_m_HW)
+m_regHH = lm(m_SVL ~ log_m_HH) 
+m_regHL = lm(m_SVL ~ log_m_HL) 
+m_regLN = lm(m_SVL ~ log_m_LN) 
+m_FlL.res = m_regFlL$resid
+m_HlL.res = m_regHlL$resid
+m_TrL.res = m_regTrL$resid
+m_HW.res = m_regHW$resid
+m_HH.res = m_regHH$resid
+m_HL.res = m_regHL$resid
+m_LN.res = m_regLN$resid
+m_names = row.names(data)
+m_log.data.res = data.frame(cbind(log_m_SVL, m_FlL.res, m_HlL.res, m_TrL.res, m_HW.res, m_HH.res, m_HL.res, m_LN.res),row.names = m_names)
+```
+```{r}
+##SEXUAL DIMORPHISM INDEXES##
+#Sexual Dimorphism indexes (Moismann shape variables,sensu Adams 2018)
+SEDi<-sqrt((((log_m_FlL/log_m_SVL)-(log_f_FlL/log_f_SVL))^2)+(((log_m_HlL/log_m_SVL)-(log_f_HlL/log_f_SVL))^2)+(((log_m_TrL/log_m_SVL)-(log_f_TrL/log_f_SVL))^2)+(((log_m_HH/log_m_SVL)-(log_f_HH/log_f_SVL))^2)+(((log_m_HW/log_m_SVL)-(log_f_HW/log_f_SVL))^2)+(((log_m_HL/log_m_SVL)-(log_f_HL/log_f_SVL))^2)+(((log_m_LN/log_m_SVL)-(log_f_LN/log_f_SVL))^2))
+SEDi_body<-sqrt((((log_m_FlL/log_m_SVL)-(log_f_FlL/log_f_SVL))^2)+(((log_m_HlL/log_m_SVL)-(log_f_HlL/log_f_SVL))^2)+(((log_m_TrL/log_m_SVL)-(log_f_TrL/log_f_SVL))^2))
+SEDi_eco<-sqrt((((log_m_FlL/log_m_SVL)-(log_f_FlL/log_f_SVL))^2)+(((log_m_HlL/log_m_SVL)-(log_f_HlL/log_f_SVL))^2)+(((log_m_LN/log_m_SVL)-(log_f_LN/log_f_SVL))^2))
+SEDi_head<-sqrt((((log_m_HH/log_m_SVL)-(log_f_HH/log_f_SVL))^2)+(((log_m_HW/log_m_SVL)-(log_f_HW/log_f_SVL))^2)+(((log_m_HL/log_m_SVL)-(log_f_HL/log_f_SVL))^2)+(((log_m_LN/log_m_SVL)-(log_f_LN/log_f_SVL))^2))
+SEDi_rep<-sqrt((((log_m_TrL/log_m_SVL)-(log_f_TrL/log_f_SVL))^2))
+SSDi<-(log_m_SVL/log_f_SVL)
+SSDi_abs_m<-(1-(f_SVL/m_SVL))
+SSDi_abs_f<-(1-(m_SVL/f_SVL))*-1
+size<-((m_SVL+f_SVL)/2)
+Dif_LN<-m_LN-f_LN
+SD<-data.frame(m_names,SEDi,SEDi_body,SEDi_head,SEDi_eco,SEDi_rep,SSDi,SSDi_abs_m,SSDi_abs_f,size,Dif_LN,MT)
+SD<-textshape::column_to_rownames(SD, loc = 1)
+write.csv(SD,file = "SD.csv")
+#Fuse columns to show only onevalue of SSDi depending on bigger sex"
+#Open new file
+SD<-read.csv("SD_modif.csv",header = T, sep = ",")
+#PLOT
+size<-SD$size
+SEDi<-SD$SEDi
+SSDi<-SD$SSDi
+SSDI_abs<-SD$SSDi_abs
+SEDi_eco<-SD$SEDi_eco
+SEDi_head<-SD$SEDi_head
+SEDi_rep<-SD$SEDi_rep
+MT<-SD$MT
+CLADE<-SD$CLADE
+plot_head<-ggplot(SD, aes(size, SEDi_head))+  geom_point(aes(colour = MT, shape = CLADE,size=0.3), size = 3, alpha = 0.6) +stat_smooth(method = "lm", col = "dimgray")+theme_classic()+geom_vline(xintercept = 60, linetype="dashed", color = "dimgray", size=0.5)+geom_vline(xintercept = 90, linetype="dashed", color = "dimgray", size=0.5)+labs(x = "Size (mm)", y = "SEDi_head")+geom_hline(yintercept = 0.03,linetype="dashed",color="red",size =0.5)
+plot_head 
+plot_head+labs(x = "Size (mm)", y = "SEDi_head")
+ggsave("SEDi_plot_head.tiff", 
+       dpi = 600, 
+       width = 200, height = 150, unit = "mm")
+plot_body<-ggplot(SD, aes(size, SEDi_eco))+  geom_point(aes(colour = MT, shape = CLADE,size=0.3), size = 3, alpha = 0.6) +stat_smooth(method = "lm", col = "dimgray")+theme_classic()+geom_vline(xintercept = 60, linetype="dashed", color = "dimgray", size=0.5)+geom_vline(xintercept = 90, linetype="dashed", color = "dimgray", size=0.5)+labs(x = "Size (mm)", y = "SEDi_body")+geom_hline(yintercept = 0.03,linetype="dashed",color="red",size =0.5)
+plot_body 
+plot_body+labs(x = "Size (mm)", y = "SEDi_body")
+plot_body 
+plot_body+labs(x = "Size (mm)", y = "SEDi_body")
+ggsave("SEDi_plot_body.tiff", 
+       dpi = 600, 
+       width = 200, height = 150, unit = "mm")
+plot_eco<-ggplot(SD, aes(size, SEDi_eco))+  geom_point(aes(colour = MT, shape = CLADE,size=0.5), size = 3, alpha = 0.6) +stat_smooth(method = "lm", col = "dimgray")+theme_classic()+geom_vline(xintercept = 60, linetype="dashed", color = "dimgray", size=0.5)+geom_vline(xintercept = 90, linetype="dashed", color = "dimgray", size=0.5)+labs(x = "Size (mm)", y = "SEDi")+geom_hline(yintercept = 0.03,linetype="dashed",color="red",size =0.5)
+plot_eco
+plot_eco+labs(x = "Size (mm)", y = "SEDi")
+ggsave("SEDi_plot.tiff", 
+       dpi = 600, 
+       width = 200, height = 150, unit = "mm")
+plot_rep<-ggplot(SD, aes(size, SEDi_rep))+  geom_point(aes(colour = MT, shape = CLADE,size=0.5), size = 3, alpha = 0.6) +stat_smooth(method = "lm", col = "dimgray")+theme_classic()+geom_vline(xintercept = 60, linetype="dashed", color = "dimgray", size=0.5)+geom_vline(xintercept = 90, linetype="dashed", color = "dimgray", size=0.5)+labs(x = "Size (mm)", y = "SEDi_rep")+geom_hline(yintercept = 0.03,linetype="dashed",color="red",size =0.5)
+plot_rep
+plot_rep+labs(x = "Size (mm)", y = "SEDi_rep")
+ggsave("SEDi_plot_rep.tiff", 
+       dpi = 600, 
+       width = 200, height = 150, unit = "mm")
+
+plot_size_abs<-ggplot(SD, aes(size, SSDI_abs))+  geom_point(aes(colour = MT, shape= CLADE), size = 2, alpha = 0.6) + stat_smooth(method = "lm", col = "dimgray")+theme_classic()+geom_vline(xintercept = 60, linetype="dashed", color = "dimgray", size=0.5)+geom_vline(xintercept = 90, linetype="dashed", color = "dimgray", size=0.5)+geom_hline(yintercept = -0.05, linetype = "dashed",color = "red", size=0.5)+geom_hline(yintercept = 0.05, linetype = "dashed",color = "red", size=0.5)+geom_hline(yintercept =0, linetype =  "solid",color = "dimgray", size=0.8)+labs(x = "Size (mm)", y = "SSDi")
+plot_size_abs
+plot_size_abs+labs(x = "Size (mm)", y = "SSDi")
+ggsave("sSDi_plot_abs.tiff", 
+       dpi = 600, 
+  
+            width = 200, height = 150, unit = "mm")
+plot_t<-ggarrange(plot_eco, plot_head,plot_body,plot_rep + rremove("x.text"), 
+          labels = c("A.", "B.", "C.","D."),
+          ncol = 2, nrow = 2,common.legend = TRUE, legend = "right")
+plot_t
+ggsave("sSDi_plot_t.tiff", 
+       dpi = 600, 
+  
+            width = 200, height = 150, unit = "mm")
+indexes<-data.frame(cbind(size,SSDi,SEDi,SEDi_eco,SEDi_head,SEDi_rep),row.names = m_names)
+write.csv(indexes,file = "indexes.csv")
+#Correlation test
+res.ssd <- cor.test(indexes$size, indexes$SSDi, 
+                    method = "spearman")
+res.ssd
+res.sed <- cor.test(indexes$size, indexes$SEDi, 
+                    method = "spearman")
+res.sed
+res.head <- cor.test(indexes$size, indexes$SEDi_head, 
+                    method = "spearman")
+res.head
+res.rep <- cor.test(indexes$size, indexes$SEDi_rep, 
+                    method = "spearman")
+res.rep
+
+lm.ssd <- lm(indexes$SSDi ~ indexes$size)
+summary(lm.ssd)
+lm.sed <- lm(indexes$SEDi ~ indexes$size)
+summary(lm.sed)
+lm.head<-lm(indexes$SEDi_head~ indexes$size)
+summary(lm.head)
+lm.rep<-lm(indexes$SEDi_rep~ indexes$size)
+summary(lm.rep)
+lm.bd<-lm(indexes$SEDi_eco~ indexes$size)
+summary(lm.bd)
+
+#the degree of sexual dimorphism in body size and shape, and lamellae number differs among morphotypes?
+#data_aov<-subset(SD,MT!="DIM")
+
+#aov_ssdi<-aov(data_aov$SSDi~data_aov$MT)
+#summary.aov(aov_ssdi)
+#aov_sedi<-aov(data_aov$SEDi~data_aov$MT)
+#summary.aov(aov_sedi)
+#aov_body<-aov(data_aov$SEDi_body~data_aov$MT)
+#summary.aov(aov_body)
+#aov_head<-aov(data_aov$SEDi_head~data_aov$MT)
+#summary.aov(aov_head)
+#aov_rep<-aov(data_aov$SEDi_rep~data_aov$MT)
+#summary.aov(aov_rep)
+violin.ssd <- ggplot(SD, aes(x=MT, y=SSDI_abs, colour = MT)) + 
+  geom_violin() + theme_classic()
+violin.ssd
+ggsave("violin_ssd.tiff",height = 200,width = 200,unit= "mm",dpi = 600 )
+
+violin.sed <- ggplot(SD, aes(x=MT, y=SEDi,colour = MT)) + 
+  geom_violin() + theme_classic()
+violin.sed
+ggsave("violin_sed.tiff",height = 200,width = 200,unit= "mm",dpi = 600 )
+
+violin.eco <- ggplot(SD, aes(x=MT, y=SEDi, colour = MT)) + 
+  geom_violin() + theme_classic()
+violin.eco
+ggsave("violin_eco.tiff",height = 200,width = 200,unit= "mm",dpi = 600 )
+violin.head <- ggplot(SD, aes(x=MT, y=SEDi_head,colour = MT)) + 
+  geom_violin() + theme_classic()
+violin.head
+ggsave("violin_eco.tiff",height = 100,width = 100,unit= "mm",dpi = 600 )
+
+violin.rep <- ggplot(SD, aes(x=MT, y=SEDi_rep,colour = MT)) + 
+  geom_violin() + theme_classic()
+violin.rep
+ggsave("violin_rep.tiff",height = 200,width = 200,unit= "mm",dpi = 600 )
+
+violin<-ggarrange(violin.sed, violin.eco,violin.head,violin.rep + rremove("x.text"), 
+          labels = c("A.", "B.", "C.","D."),
+          ncol = 2, nrow = 2,common.legend = TRUE, legend = "right")
+violin
+ggsave("violin_t.tiff",height = 600,width = 600,unit= "mm",dpi = 600 )
+
+test.ssd<-dunn.test(SSDI_abs,g=MT,kw=T,method = "bonferroni")http://127.0.0.1:36421/graphics/e553de43-eee0-4e24-9c96-d0b7a7b353c9.png
+test.sed<-dunn.test(SEDi,g=MT,kw=T,method = "bonferroni")
+test.eco<-dunn.test(SEDi_eco,g=MT,kw=T,method = "bonferroni")
+test.rep<-dunn.test(SEDi_rep,g=MT,kw=T,method = "bonferroni")
+test.head<-dunn.test(SEDi_head,g=MT,kw=T,method = "bonferroni")
+```
+```{r}
+##Morphotype clasification with males, females and both 
+##Use corrected data of males, females and both
+
+data.females<-read.csv("hembras.csv",header = T, sep = ",")
+data.females<-textshape::column_to_rownames(data.females,loc = 1)
+#data.females<-data.females[c(-3,-6,-7)]#Draw cor.variables
+data.males<-read.csv("machos.csv", header = T, sep = ",")
+data.males<-textshape::column_to_rownames(data.males,loc = 1)
+#data.males<-data.males[c(-3,-6,-7)]#Draw cor.variables
+#Merge two data sets and add tag to each row to specify sex 
+data.total<-read.csv("corrected_total_fr.csv",header = T, sep = ",")
+data.total<-textshape::column_to_rownames(data.total, loc = 1)
+data.total<-data.total[c(-7)]
+#ordination analysis
+dist.t<-dist(data.total,method = "euclidean")
+dist.f<-dist(data.females,method = "euclidean")
+dist.m<-dist(data.males,method = "euclidean")
+ordination.t <- cmdscale(dist.t)
+ordination.f <- cmdscale(dist.f)
+ordination.m <- cmdscale(dist.m)
+#polythetic hierarchical divisive clustering (Method for UPGMA following Losos )
+cluster.t <- hclust(dist(ordination.t), method = "average") 
+cluster.f <- hclust(dist(ordination.f), method = "average") 
+cluster.m <- hclust(dist(ordination.m), method = "average") 
+#Dendrogram (Still does nottell us anythingabout group number)
+plot(cluster.t)
+plot(cluster.f)
+plot(cluster.m)
+#Search for better number of clusters
+nclust.t<-NbClust(data.total, distance = "euclidean", min.nc=3, max.nc=87, 
+             method = "average", index = "pseudot2") 
+nclust.m<-NbClust(data.males, distance = "euclidean", min.nc=3, max.nc=41, 
+             method = "average", index = "pseudot2") 
+nclust.f<-NbClust(data.females, distance = "euclidean", min.nc=3, max.nc=20, 
+             method = "average", index = "ch") 
+nclust.t$Best.nc
+nclust.m$Best.nc
+nclust.f$Best.nc
+clust.t<-as.factor(nclust.t$Best.partition)
+dend_t<-fviz_dend(cluster.t, cex = 0.6, k = 4)
+ggsave("dend_t.tiff",dpi = 600,width = 300,height = 200,unit ="mm")
+dend_t<-readTIFF("dend_t.tiff")
+dend_t<-rasterGrob(dend_t)
+dend_t<-as.ggplot(dend_t)
+dend_f<-fviz_dend(cluster.f, cex = 0.6, k = 4)
+ggsave("dend_f.tiff",dpi = 600,width = 200,height = 200,unit ="mm")
+dend_f<-readTIFF("dend_f.tiff")
+dend_f<-rasterGrob(dend_f)
+dend_f<-as.ggplot(dend_f)
+dend_m<-fviz_dend(cluster.m, cex = 0.6, k = 5)
+ggsave("dend_m.tiff",dpi = 600,width = 200,height = 200,unit ="mm")
+dend_m<-readTIFF("dend_m.tiff")
+dend_m<-rasterGrob(dend_m)
+dend_m<-as.ggplot(dend_m)
+plot_tt
+ggsave("plot_tt.tiff",dpi = 600,width = 200,height = 200,unit ="mm")
+
+clust.t<-hcut(data.total,k=4)
+p_clust<-fviz_cluster(clust.t,data = data.females)+theme_classic()
+dend_all<-plot_t<-ggarrange(dend_t, dend_f,dend_m,plot_tt + rremove("x.text"), 
+          labels = c("A.", "B.", "C.","D."),
+          ncol = 2,nrow = 2,common.legend = TRUE, legend = "right")
+dend_all
+ggsave("Fig_1_newnew_.tiff", 
+       dpi = 600, 
+       width = 200, height = 100, unit = "mm")
+##Morphotype assignment
+clust.total<-data.frame(nclust.t$Best.partition)
+write.csv(clust.total, "clust.total.csv")
+clust.females<-data.frame(nclust.f$Best.partition)
+write.csv(clust.females,"clust.females.csv")
+clust.males<-data.frame(nclust.m$Best.partition)
+write.csv(clust.males,"clust.males.csv")
+##visualize cluster in morphospace 
+clust.t<-cutree(cluster.t,k=4)
+clust_tt<-fviz_cluster(list(data = data.total,cluster = clust.t,show_labels = T),labelsize =0 )+theme_classic()
+plot_tt<-plot(clust_tt)
+plot_tt
+#DFA
+data.total<-read.csv("corrected_total.csv",header = T, sep = ",") #reload dataframe with MT column
+data.total<-textshape::column_to_rownames(data.total, loc = 1)
+lda<-lda(MT ~ data.total$log_svl+data.total$m_FlL.res+data.total$m_HlL.res+data.total$m_TrL.res+data.total$m_HW.res+data.total$m_LN.res,data = data.total,na.action = "na.omit",CV = FALSE)
+lda
+lda$scaling
+p1 = predict(lda, data.total)$class
+(tab = table(Predicted = p1, Actual = data.total$MT))
+#  Prediction matrix
+p = predict(lda)
+freqtable = table(p$class, data.total$MT)
+#exactitude matrix
+sum(diag(tab))/sum(tab) 
+data.total$LDA1 = p$x[,1]
+data.total$LDA2 = p$x[,2]
+data.total$LDA3 = p$x[,3]
+DF = manova(cbind(LDA1, LDA2, LDA3) ~ MT, 
+            data = data.total)
+summary.aov(DF)
+##female
+data.females<-read.csv("corrected_females.csv",header = T, sep = ",") #reload dataframe with MT column
+data.females<-textshape::column_to_rownames(data.females, loc = 1)
+lda<-lda(MT ~ data.females$log_svl+data.females$m_FlL.res+data.females$m_HlL.res+data.females$m_TrL.res+data.females$m_HW.res+data.females$m_LN.res,data = data.females,na.action = "na.omit",CV = FALSE)
+lda
+lda$scaling
+p1 = predict(lda, data.females)$class
+(tab = table(Predicted = p1, Actual = data.females$MT))
+#  Prediction matrix
+p = predict(lda)
+freqtable = table(p$class, data.females$MT)
+#exactitude matrix
+sum(diag(tab))/sum(tab) 
+data.females$LDA1 = p$x[,1]
+data.females$LDA2 = p$x[,2]
+data.females$LDA3 = p$x[,3]
+DF = manova(cbind(LDA1, LDA2, LDA3) ~ MT, 
+            data = data.females)
+summary.aov(DF)
+##males
+data.males<-read.csv("corrected_males.csv",header = T, sep = ",") #reload dataframe with MT column
+data.males<-textshape::column_to_rownames(data.males, loc = 1)
+lda<-lda(MT ~ data.males$log_svl+data.males$m_FlL.res+data.males$m_HlL.res+data.males$m_TrL.res+data.males$m_HW.res+data.males$m_LN.res,data = data.males,na.action = "na.omit",CV = FALSE)
+lda
+lda$scaling
+p1 = predict(lda, data.males)$class
+(tab = table(Predicted = p1, Actual = data.males$MT))
+#  Prediction matrix
+p = predict(lda)
+freqtable = table(p$class, data.males$MT)
+#exactitude matrix
+sum(diag(tab))/sum(tab) 
+data.males$LDA1 = p$x[,1]
+data.males$LDA2 = p$x[,2]
+data.males$LDA3 = p$x[,3]
+DF = manova(cbind(LDA1, LDA2, LDA3) ~ MT, 
+            data = data.males)
+summary.aov(DF)
+```
+
+```{r}
+#coNVEX HULL
+#A.antonii
+data_antonii<-read.csv("A_antonii.csv",header = T,sep = ";")
+ICN = as.character(data_antonii$ICN)
+data_antonii<-textshape::column_to_rownames(data_antonii, loc = 1)
+#data<-na.omit(data_antonii)
+sex_antonii = as.factor((data_antonii)[,1])
+svl_antonii = as.numeric((data_antonii)[,3])
+fll_antonii = as.numeric((data_antonii)[,5])
+trl_antonii = as.numeric((data_antonii)[,7])
+hl_antonii = as.numeric((data_antonii)[,9])
+ln_antonii = as.numeric((data_antonii)[,11])
+log_svl_antonii<-log(svl_antonii)
+log_fll_antonii<-log(fll_antonii)
+log_trl_antonii<-log(trl_antonii)
+log_hl_antonii<-log(hl_antonii)
+log_ln_antonii<-log(ln_antonii)
+reg_fll_antonii = lm(svl_antonii ~ log_fll_antonii) 
+reg_trl_antonii = lm(svl_antonii ~ log_trl_antonii) 
+reg_hl_antonii = lm(svl_antonii ~ log_hl_antonii)
+reg_ln_antonii = lm(svl_antonii ~ log_ln_antonii)
+res_fll_antonii = reg_fll_antonii$resid
+res_trl_antonii = reg_trl_antonii$resid
+res_hl_antonii = reg_hl_antonii$resid
+res_ln_antonii = reg_ln_antonii$resid
+res_antonii = data.frame(cbind(log_svl_antonii,res_fll_antonii,res_trl_antonii,res_ln_antonii,res_hl_antonii))
+antonii_pca<-(res_antonii)
+summary(antonii_pca)
+antonii_d<-  data.frame (cbind(data_antonii$Sex,antonii_pca))
+colnames(antonii_d)[1] = "Sex"
+colnames(antonii_d)[2] = "PC1"
+colnames(antonii_d)[3] = "PC2"
+colnames(antonii_d)[4] = "PC3"
+colnames(antonii_d)[5] = "PC4"
+colnames(antonii_d)[6] = "PC5"
+antonii_d<-cbind(ICN,antonii_d)
+antonii_d
+write.table(antonii_d,file = "antonii_scores.txt")
+antonii_scores<-read.table("antonii_scores.txt",header = TRUE,sep = " ")
+hull_ant <- antonii_scores %>% group_by(Sex) %>%
+  slice(chull(PC2, PC1))
+plot <- ggplot(antonii_scores, aes(PC1,
+                                  PC2,
+                                  color = Sex))+
+  geom_point(shape = 21)
+coolors<-c("blue4","hotpink")
+plot<- plot + geom_polygon(data = hull_ant, alpha = 0.2,
+                           aes(fill = Sex,colour = Sex))+scale_fill_manual(values=coolors)+scale_color_manual(values = coolors)+theme_classic()+ggtitle("A. antonii")
+plot
+ggsave("A_antonii_hull.tiff", 
+       dpi = 600, 
+       width = 200, height = 150, unit = "mm")
+wilcox.antonii<-wilcox.test(log_svl_antonii~sex_antonii)
+wilcox.antonii
+
+#A_apollinaris
+data_apollinaris<-read.csv("A_apollinaris.csv",header = T,sep = ";")
+ICN = as.character(data_apollinaris$ICN)
+data_apollinaris<-textshape::column_to_rownames(data_apollinaris, loc = 1)
+#data<-na.omit(data_apollinaris)
+sex_apollinaris = as.factor((data_apollinaris)[,1])
+svl_apollinaris = as.numeric((data_apollinaris)[,3])
+fll_apollinaris = as.numeric((data_apollinaris)[,5])
+trl_apollinaris = as.numeric((data_apollinaris)[,7])
+hl_apollinaris = as.numeric((data_apollinaris)[,9])
+ln_apollinaris = as.numeric((data_apollinaris)[,11])
+log_svl_apollinaris<-log(svl_apollinaris)
+log_fll_apollinaris<-log(fll_apollinaris)
+log_trl_apollinaris<-log(trl_apollinaris)
+log_hl_apollinaris<-log(hl_apollinaris)
+log_ln_apollinaris<-log(ln_apollinaris)
+reg_fll_apollinaris = lm(svl_apollinaris ~ log_fll_apollinaris) 
+reg_trl_apollinaris = lm(svl_apollinaris ~ log_trl_apollinaris) 
+reg_hl_apollinaris = lm(svl_apollinaris ~ log_hl_apollinaris)
+reg_ln_apollinaris = lm(svl_apollinaris ~ log_ln_apollinaris)
+res_fll_apollinaris = reg_fll_apollinaris$resid
+res_trl_apollinaris = reg_trl_apollinaris$resid
+res_hl_apollinaris = reg_hl_apollinaris$resid
+res_ln_apollinaris = reg_ln_apollinaris$resid
+res_apollinaris = data.frame(cbind(log_svl_apollinaris,res_fll_apollinaris,res_trl_apollinaris,res_hl_apollinaris,res_ln_apollinaris))
+apollinaris_pca<-PCA(res_apollinaris)
+summary.PCA(apollinaris_pca)
+apollinaris_d<-  data.frame (cbind(data_apollinaris$Sex,apollinaris_scores))
+colnames(apollinaris_d)[1] = "Sex"
+colnames(apollinaris_d)[2] = "PC1"
+colnames(apollinaris_d)[3] = "PC2"
+colnames(apollinaris_d)[4] = "PC3"
+colnames(apollinaris_d)[5] = "PC4"
+colnames(apollinaris_d)[6] = "PC5"
+apollinaris_d<-cbind(ICN,apollinaris_d)
+apollinaris_d
+write.table(apollinaris_d,file = "apollinaris_scores.txt")
+apollinaris_scores<-read.table("apollinaris_scores.txt",header = TRUE,sep = " ")
+hull_apo <- apollinaris_scores %>% group_by(Sex) %>%
+  slice(chull(PC2, PC1))
+plot <- ggplot(apollinaris_scores, aes(PC1,
+                                  PC2,
+                                  color = Sex))+
+  geom_point(shape = 21)
+plot<- plot + geom_polygon(data = hull_apo, alpha = 0.2,
+                           aes(fill = Sex,colour = Sex))+scale_fill_manual(values=coolors)+scale_color_manual(values = coolors)+theme_classic()+ggtitle("A. apollinaris")
+plot
+ggsave("A_apollinaris_hull.tiff", 
+       dpi = 600, 
+       width = 200, height = 150, unit = "mm")
+wilcox.apollinaris<-wilcox.test(log_svl_apollinaris~sex_apollinaris)
+wilcox.apollinaris
+#########A.auratus
+data_auratus<-read.csv("A_auratus.csv",header = T,sep = ";")
+ICN = as.character(data_auratus$ICN)
+data_auratus<-textshape::column_to_rownames(data_auratus, loc = 1)
+#data<-na.omit(data_auratus)
+sex_auratus = as.factor((data_auratus)[,1])
+svl_auratus = as.numeric((data_auratus)[,3])
+fll_auratus = as.numeric((data_auratus)[,5])
+trl_auratus = as.numeric((data_auratus)[,7])
+hl_auratus = as.numeric((data_auratus)[,9])
+ln_auratus = as.numeric((data_auratus)[,11])
+log_svl_auratus<-log(svl_auratus)
+log_fll_auratus<-log(fll_auratus)
+log_trl_auratus<-log(trl_auratus)
+log_hl_auratus<-log(hl_auratus)
+log_ln_auratus<-log(ln_auratus)
+reg_fll_auratus = lm(svl_auratus ~ log_fll_auratus) 
+reg_trl_auratus = lm(svl_auratus ~ log_trl_auratus) 
+reg_hl_auratus = lm(svl_auratus ~ log_hl_auratus)
+reg_ln_auratus = lm(svl_auratus ~ log_ln_auratus)
+res_fll_auratus = reg_fll_auratus$resid
+res_trl_auratus = reg_trl_auratus$resid
+res_hl_auratus = reg_hl_auratus$resid
+res_ln_auratus = reg_ln_auratus$resid
+res_auratus = data.frame(cbind(log_svl_auratus,res_fll_auratus,res_trl_auratus,res_hl_auratus,res_ln_auratus))
+auratus_pca<-PCA(res_auratus,)
+summary.PCA(auratus_pca)
+auratus_d<-  data.frame (cbind(data_auratus$Sex,auratus_scores))
+colnames(auratus_d)[1] = "Sex"
+colnames(auratus_d)[2] = "PC1"
+colnames(auratus_d)[3] = "PC2"
+colnames(auratus_d)[4] = "PC3"
+colnames(auratus_d)[5] = "PC4"
+colnames(auratus_d)[6] = "PC5"
+auratus_d<-cbind(ICN,auratus_d)
+auratus_d
+write.table(auratus_d,file = "auratus_scores.txt")
+auratus_scores<-read.table("auratus_scores.txt",header = TRUE,sep = " ")
+hull_apo <- auratus_scores %>% group_by(Sex) %>%
+  slice(chull(PC2, PC1))
+plot <- ggplot(auratus_scores, aes(PC1,
+                                  PC2,
+                                  color = Sex))+
+  geom_point(shape = 21)
+plot<- plot + geom_polygon(data = hull_apo, alpha = 0.2,
+                           aes(fill = Sex,colour = Sex))+scale_fill_manual(values=coolors)+scale_color_manual(values = coolors)+theme_classic()+ggtitle("A. auratus")
+plot
+ggsave("A_auratus_hull.tiff", 
+       dpi = 600, 
+       width = 200, height = 150, unit = "mm")
+wilcox.auratus<-wilcox.test(log_svl_auratus~sex_auratus)
+wilcox.auratus
+
+##A.chloris##
+
+data_chloris<-read.csv("A_chloris.csv",header = T,sep = ";")
+ICN = as.character(data_chloris$ICN)
+data_chloris<-textshape::column_to_rownames(data_chloris, loc = 1)
+#data<-na.omit(data_chloris)
+sex_chloris = as.factor((data_chloris)[,1])
+svl_chloris = as.numeric((data_chloris)[,3])
+fll_chloris = as.numeric((data_chloris)[,5])
+trl_chloris = as.numeric((data_chloris)[,7])
+hl_chloris = as.numeric((data_chloris)[,9])
+ln_chloris = as.numeric((data_chloris)[,11])
+log_svl_chloris<-log(svl_chloris)
+log_fll_chloris<-log(fll_chloris)
+log_trl_chloris<-log(trl_chloris)
+log_hl_chloris<-log(hl_chloris)
+log_ln_chloris<-log(ln_chloris)
+reg_fll_chloris = lm(svl_chloris ~ log_fll_chloris) 
+reg_trl_chloris = lm(svl_chloris ~ log_trl_chloris) 
+reg_hl_chloris = lm(svl_chloris ~ log_hl_chloris)
+reg_ln_chloris = lm(svl_chloris ~ log_ln_chloris)
+res_fll_chloris = reg_fll_chloris$resid
+res_trl_chloris = reg_trl_chloris$resid
+res_hl_chloris = reg_hl_chloris$resid
+res_ln_chloris = reg_ln_chloris$resid
+res_chloris = data.frame(cbind(log_svl_chloris,res_fll_chloris,res_trl_chloris,res_hl_chloris,res_ln_chloris))
+chloris_pca<-PCA(res_chloris)
+summary.PCA(chloris_pca)
+chloris_d<-  data.frame (cbind(data_chloris$Sex,chloris_scores))
+colnames(chloris_d)[1] = "Sex"
+colnames(chloris_d)[2] = "PC1"
+colnames(chloris_d)[3] = "PC2"
+colnames(chloris_d)[4] = "PC3"
+colnames(chloris_d)[5] = "PC4"
+colnames(chloris_d)[6] = "PC5"
+chloris_d<-cbind(ICN,chloris_d)
+chloris_d
+write.table(chloris_d,file = "chloris_scores.txt")
+chloris_scores<-read.table("chloris_scores.txt",header = TRUE,sep = " ")
+hull_apo <- chloris_scores %>% group_by(Sex) %>%
+  slice(chull(PC2, PC1))
+plot <- ggplot(chloris_scores, aes(PC1,
+                                  PC2,
+                                  color = Sex))+
+  geom_point(shape = 21)
+plot<- plot + geom_polygon(data = hull_apo, alpha = 0.2,
+                           aes(fill = Sex,colour = Sex))+scale_fill_manual(values=coolors)+scale_color_manual(values = coolors)+scale_fill_manual(values=coolors)+scale_color_manual(values = coolors)+theme_classic()+ggtitle("A. chloris")
+plot
+ggsave("A_chloris_hull.tiff", 
+       dpi = 600, 
+       width = 200, height = 150, unit = "mm")
+wilcox.chloris<-wilcox.test(log_svl_chloris~sex_chloris)
+wilcox.chloris
+
+##A.fuscoauratus
+data_fuscoauratus<-read.csv("A_fuscoauratus.csv",header = T,sep = ";")
+ICN = as.character(data_fuscoauratus$ICN)
+data_fuscoauratus<-textshape::column_to_rownames(data_fuscoauratus, loc = 1)
+#data<-na.omit(data_fuscoauratus)
+sex_fuscoauratus = as.factor((data_fuscoauratus)[,1])
+svl_fuscoauratus = as.numeric((data_fuscoauratus)[,3])
+fll_fuscoauratus = as.numeric((data_fuscoauratus)[,5])
+trl_fuscoauratus = as.numeric((data_fuscoauratus)[,7])
+hl_fuscoauratus = as.numeric((data_fuscoauratus)[,9])
+ln_fuscoauratus = as.numeric((data_fuscoauratus)[,11])
+log_svl_fuscoauratus<-log(svl_fuscoauratus)
+log_fll_fuscoauratus<-log(fll_fuscoauratus)
+log_trl_fuscoauratus<-log(trl_fuscoauratus)
+log_hl_fuscoauratus<-log(hl_fuscoauratus)
+log_ln_fuscoauratus<-log(ln_fuscoauratus)
+reg_fll_fuscoauratus = lm(svl_fuscoauratus ~ log_fll_fuscoauratus) 
+reg_trl_fuscoauratus = lm(svl_fuscoauratus ~ log_trl_fuscoauratus) 
+reg_hl_fuscoauratus = lm(svl_fuscoauratus ~ log_hl_fuscoauratus)
+reg_ln_fuscoauratus = lm(svl_fuscoauratus ~ log_ln_fuscoauratus)
+res_fll_fuscoauratus = reg_fll_fuscoauratus$resid
+res_trl_fuscoauratus = reg_trl_fuscoauratus$resid
+res_hl_fuscoauratus = reg_hl_fuscoauratus$resid
+res_ln_fuscoauratus = reg_ln_fuscoauratus$resid
+res_fuscoauratus = data.frame(cbind(log_svl_fuscoauratus,res_fll_fuscoauratus,res_trl_fuscoauratus,res_hl_fuscoauratus,res_ln_fuscoauratus))
+fuscoauratus_pca<-PCA(res_fuscoauratus)
+summary.PCA(fuscoauratus_pca)
+fuscoauratus_d<-  data.frame (cbind(data_fuscoauratus$Sex,fuscoauratus_scores))
+colnames(fuscoauratus_d)[1] = "Sex"
+colnames(fuscoauratus_d)[2] = "PC1"
+colnames(fuscoauratus_d)[3] = "PC2"
+colnames(fuscoauratus_d)[4] = "PC3"
+colnames(fuscoauratus_d)[5] = "PC4"
+colnames(fuscoauratus_d)[6] = "PC5"
+fuscoauratus_d<-cbind(ICN,fuscoauratus_d)
+fuscoauratus_d
+write.table(fuscoauratus_d,file = "fuscoauratus_scores.txt")
+fuscoauratus_scores<-read.table("fuscoauratus_scores.txt",header = TRUE,sep = " ")
+hull_apo <- fuscoauratus_scores %>% group_by(Sex) %>%
+  slice(chull(PC2, PC1))
+plot <- ggplot(fuscoauratus_scores, aes(PC1,
+                                  PC2,
+                                  color = Sex))+
+  geom_point(shape = 21)
+plot<- plot + geom_polygon(data = hull_apo, alpha = 0.2,
+                           aes(fill = Sex,colour = Sex))+scale_fill_manual(values=coolors)+scale_color_manual(values = coolors)+theme_classic()+ggtitle("A. fuscoauratus")
+plot
+ggsave("A_fuscoauratus_hull.tiff", 
+       dpi = 600, 
+       width = 200, height = 150, unit = "mm")
+wilcox.fuscoauratus<-wilcox.test(log_svl_fuscoauratus~sex_fuscoauratus)
+wilcox.fuscoauratus
+##A.heterodermus
+data_heterodermus<-read.csv("A_heterodermus.csv",header = T,sep = ";")
+ICN = as.character(data_heterodermus$ICN)
+data_heterodermus<-textshape::column_to_rownames(data_heterodermus, loc = 1)
+#data<-na.omit(data_heterodermus)
+sex_heterodermus = as.factor((data_heterodermus)[,1])
+svl_heterodermus = as.numeric((data_heterodermus)[,3])
+fll_heterodermus = as.numeric((data_heterodermus)[,5])
+trl_heterodermus = as.numeric((data_heterodermus)[,7])
+hl_heterodermus = as.numeric((data_heterodermus)[,9])
+ln_heterodermus = as.numeric((data_heterodermus)[,11])
+log_svl_heterodermus<-log(svl_heterodermus)
+log_fll_heterodermus<-log(fll_heterodermus)
+log_trl_heterodermus<-log(trl_heterodermus)
+log_hl_heterodermus<-log(hl_heterodermus)
+log_ln_heterodermus<-log(ln_heterodermus)
+reg_fll_heterodermus = lm(svl_heterodermus ~ log_fll_heterodermus) 
+reg_trl_heterodermus = lm(svl_heterodermus ~ log_trl_heterodermus) 
+reg_hl_heterodermus = lm(svl_heterodermus ~ log_hl_heterodermus)
+reg_ln_heterodermus = lm(svl_heterodermus ~ log_ln_heterodermus)
+res_fll_heterodermus = reg_fll_heterodermus$resid
+res_trl_heterodermus = reg_trl_heterodermus$resid
+res_hl_heterodermus = reg_hl_heterodermus$resid
+res_ln_heterodermus = reg_ln_heterodermus$resid
+res_heterodermus = data.frame(cbind(log_svl_heterodermus,res_fll_heterodermus,res_trl_heterodermus,res_hl_heterodermus,res_ln_heterodermus))
+heterodermus_pca<-PCA(res_heterodermus)
+summary.PCA(heterodermus_pca)
+heterodermus_d<-  data.frame (cbind(data_heterodermus$Sex,heterodermus_scores))
+colnames(heterodermus_d)[1] = "Sex"
+colnames(heterodermus_d)[2] = "PC1"
+colnames(heterodermus_d)[3] = "PC2"
+colnames(heterodermus_d)[4] = "PC3"
+colnames(heterodermus_d)[5] = "PC4"
+colnames(heterodermus_d)[6] = "PC5"
+heterodermus_d<-cbind(ICN,heterodermus_d)
+heterodermus_d
+write.table(heterodermus_d,file = "heterodermus_scores.txt")
+heterodermus_scores<-read.table("heterodermus_scores.txt",header = TRUE,sep = " ")
+hull_apo <- heterodermus_scores %>% group_by(Sex) %>%
+  slice(chull(PC2, PC1))
+plot <- ggplot(heterodermus_scores, aes(PC1,
+                                  PC2,
+                                  color = Sex))+
+  geom_point(shape = 21)
+plot<- plot + geom_polygon(data = hull_apo, alpha = 0.2,
+                           aes(fill = Sex,colour = Sex))+scale_fill_manual(values=coolors)+scale_color_manual(values = coolors)+theme_classic()+ggtitle("A. heterodermus")
+plot
+ggsave("A_heterodermus_hull.tiff", 
+       dpi = 600, 
+       width = 200, height = 150, unit = "mm")
+wilcox.heterodermus<-wilcox.test(log_svl_heterodermus~sex_heterodermus)
+wilcox.heterodermus
+##A.huilae
+
+data_huilae<-read.csv("A_huilae.csv",header = T,sep = ";")
+ICN = as.character(data_huilae$ICN)
+data_huilae<-textshape::column_to_rownames(data_huilae, loc = 1)
+#data<-na.omit(data_huilae)
+sex_huilae = as.factor((data_huilae)[,1])
+svl_huilae = as.numeric((data_huilae)[,3])
+fll_huilae = as.numeric((data_huilae)[,5])
+trl_huilae = as.numeric((data_huilae)[,7])
+hl_huilae = as.numeric((data_huilae)[,9])
+ln_huilae = as.numeric((data_huilae)[,11])
+log_svl_huilae<-log(svl_huilae)
+log_fll_huilae<-log(fll_huilae)
+log_trl_huilae<-log(trl_huilae)
+log_hl_huilae<-log(hl_huilae)
+log_ln_huilae<-log(ln_huilae)
+reg_fll_huilae = lm(svl_huilae ~ log_fll_huilae) 
+reg_trl_huilae = lm(svl_huilae ~ log_trl_huilae) 
+reg_hl_huilae = lm(svl_huilae ~ log_hl_huilae)
+reg_ln_huilae = lm(svl_huilae ~ log_ln_huilae)
+res_fll_huilae = reg_fll_huilae$resid
+res_trl_huilae = reg_trl_huilae$resid
+res_hl_huilae = reg_hl_huilae$resid
+res_ln_huilae = reg_ln_huilae$resid
+res_huilae = data.frame(cbind(log_svl_huilae,res_fll_huilae,res_trl_huilae,res_hl_huilae,res_ln_huilae))
+huilae_pca<-PCA(res_huilae)
+summary.PCA(huilae_pca)
+huilae_d<-  data.frame (cbind(data_huilae$Sex,huilae_scores))
+colnames(huilae_d)[1] = "Sex"
+colnames(huilae_d)[2] = "PC1"
+colnames(huilae_d)[3] = "PC2"
+colnames(huilae_d)[4] = "PC3"
+colnames(huilae_d)[5] = "PC4"
+colnames(huilae_d)[6] = "PC5"
+huilae_d<-cbind(ICN,huilae_d)
+huilae_d
+write.table(huilae_d,file = "huilae_scores.txt")
+huilae_scores<-read.table("huilae_scores.txt",header = TRUE,sep = " ")
+hull_apo <- huilae_scores %>% group_by(Sex) %>%
+  slice(chull(PC2, PC1))
+plot <- ggplot(huilae_scores, aes(PC1,
+                                  PC2,
+                                  color = Sex))+
+  geom_point(shape = 21)
+plot<- plot + geom_polygon(data = hull_apo, alpha = 0.2,
+                           aes(fill = Sex,colour = Sex))+scale_fill_manual(values=coolors)+scale_color_manual(values = coolors)+theme_classic()+ggtitle("A. huilae")
+plot
+ggsave("A_huilae_hull.tiff", 
+       dpi = 600, 
+       width = 200, height = 150, unit = "mm")
+wilcox.huilae<-wilcox.test(log_svl_huilae~sex_huilae)
+wilcox.huilae
+###A.maculigula
+
+data_maculigula<-read.csv("A_maculigula.csv",header = T,sep = ";")
+ICN = as.character(data_maculigula$ICN)
+data_maculigula<-textshape::column_to_rownames(data_maculigula, loc = 1)
+#data<-na.omit(data_maculigula)
+sex_maculigula = as.factor((data_maculigula)[,1])
+svl_maculigula = as.numeric((data_maculigula)[,3])
+fll_maculigula = as.numeric((data_maculigula)[,5])
+trl_maculigula = as.numeric((data_maculigula)[,7])
+hl_maculigula = as.numeric((data_maculigula)[,9])
+ln_maculigula = as.numeric((data_maculigula)[,11])
+log_svl_maculigula<-log(svl_maculigula)
+log_fll_maculigula<-log(fll_maculigula)
+log_trl_maculigula<-log(trl_maculigula)
+log_hl_maculigula<-log(hl_maculigula)
+log_ln_maculigula<-log(ln_maculigula)
+reg_fll_maculigula = lm(svl_maculigula ~ log_fll_maculigula) 
+reg_trl_maculigula = lm(svl_maculigula ~ log_trl_maculigula) 
+reg_hl_maculigula = lm(svl_maculigula ~ log_hl_maculigula)
+reg_ln_maculigula = lm(svl_maculigula ~ log_ln_maculigula)
+res_fll_maculigula = reg_fll_maculigula$resid
+res_trl_maculigula = reg_trl_maculigula$resid
+res_hl_maculigula = reg_hl_maculigula$resid
+res_ln_maculigula = reg_ln_maculigula$resid
+res_maculigula = data.frame(cbind(log_svl_maculigula,res_fll_maculigula,res_trl_maculigula,res_hl_maculigula,res_ln_maculigula))
+maculigula_pca<-PCA(res_maculigula)
+summary.PCA(maculigula_pca)
+maculigula_d<-  data.frame (cbind(data_maculigula$Sex,maculigula_scores))
+colnames(maculigula_d)[1] = "Sex"
+colnames(maculigula_d)[2] = "PC1"
+colnames(maculigula_d)[3] = "PC2"
+colnames(maculigula_d)[4] = "PC3"
+colnames(maculigula_d)[5] = "PC4"
+colnames(maculigula_d)[6] = "PC5"
+maculigula_d<-cbind(ICN,maculigula_d)
+maculigula_d
+write.table(maculigula_d,file = "maculigula_scores.txt")
+maculigula_scores<-read.table("maculigula_scores.txt",header = TRUE,sep = " ")
+hull_apo <- maculigula_scores %>% group_by(Sex) %>%
+  slice(chull(PC2, PC1))
+plot <- ggplot(maculigula_scores, aes(PC1,
+                                  PC2,
+                                  color = Sex))+
+  geom_point(shape = 21)
+plot<- plot + geom_polygon(data = hull_apo, alpha = 0.2,
+                           aes(fill = Sex,colour = Sex))+scale_fill_manual(values=coolors)+scale_color_manual(values = coolors)+theme_classic()+ggtitle("A. maculigula")
+plot
+ggsave("A_maculigula_hull.tiff", 
+       dpi = 600, 
+       width = 200, height = 150, unit = "mm")
+wilcox.maculigula<-wilcox.test(log_svl_maculigula~sex_maculigula)
+wilcox.maculigula
+###A.maculiventris
+data_maculiventris<-read.csv("A_maculiventris.csv",header = T,sep = ";")
+ICN = as.character(data_maculiventris$ICN)
+data_maculiventris<-textshape::column_to_rownames(data_maculiventris, loc = 1)
+#data<-na.omit(data_maculiventris)
+sex_maculiventris = as.factor((data_maculiventris)[,1])
+svl_maculiventris = as.numeric((data_maculiventris)[,3])
+fll_maculiventris = as.numeric((data_maculiventris)[,5])
+trl_maculiventris = as.numeric((data_maculiventris)[,7])
+hl_maculiventris = as.numeric((data_maculiventris)[,9])
+ln_maculiventris = as.numeric((data_maculiventris)[,11])
+log_svl_maculiventris<-log(svl_maculiventris)
+log_fll_maculiventris<-log(fll_maculiventris)
+log_trl_maculiventris<-log(trl_maculiventris)
+log_hl_maculiventris<-log(hl_maculiventris)
+log_ln_maculiventris<-log(ln_maculiventris)
+reg_fll_maculiventris = lm(svl_maculiventris ~ log_fll_maculiventris) 
+reg_trl_maculiventris = lm(svl_maculiventris ~ log_trl_maculiventris) 
+reg_hl_maculiventris = lm(svl_maculiventris ~ log_hl_maculiventris)
+reg_ln_maculiventris = lm(svl_maculiventris ~ log_ln_maculiventris)
+res_fll_maculiventris = reg_fll_maculiventris$resid
+res_trl_maculiventris = reg_trl_maculiventris$resid
+res_hl_maculiventris = reg_hl_maculiventris$resid
+res_ln_maculiventris = reg_ln_maculiventris$resid
+res_maculiventris = data.frame(cbind(log_svl_maculiventris,res_fll_maculiventris,res_trl_maculiventris,res_hl_maculiventris,res_ln_maculiventris))
+maculiventris_pca<-PCA(res_maculiventris)
+summary.PCA(maculiventris_pca)
+maculiventris_d<-  data.frame (cbind(data_maculiventris$Sex,maculiventris_scores))
+colnames(maculiventris_d)[1] = "Sex"
+colnames(maculiventris_d)[2] = "PC1"
+colnames(maculiventris_d)[3] = "PC2"
+colnames(maculiventris_d)[4] = "PC3"
+colnames(maculiventris_d)[5] = "PC4"
+colnames(maculiventris_d)[6] = "PC5"
+maculiventris_d<-cbind(ICN,maculiventris_d)
+maculiventris_d
+write.table(maculiventris_d,file = "maculiventris_scores.txt")
+maculiventris_scores<-read.table("maculiventris_scores.txt",header = TRUE,sep = " ")
+hull_apo <- maculiventris_scores %>% group_by(Sex) %>%
+  slice(chull(PC2, PC1))
+plot <- ggplot(maculiventris_scores, aes(PC1,
+                                  PC2,
+                                  color = Sex))+
+  geom_point(shape = 21)
+plot<- plot + geom_polygon(data = hull_apo, alpha = 0.2,
+                           aes(fill = Sex,colour = Sex))+scale_fill_manual(values=coolors)+scale_color_manual(values = coolors)+theme_classic()+ggtitle("A. maculiventris")
+plot
+ggsave("A_maculiventris_hull.tiff", 
+       dpi = 600, 
+       width = 200, height = 150, unit = "mm")
+wilcox.maculiventris<-wilcox.test(log_svl_maculiventris~sex_maculiventris)
+wilcox.maculiventris
+##A. mariarum
+
+data_mariarum<-read.csv("A_mariarum.csv",header = T,sep = ";")
+ICN = as.character(data_mariarum$ICN)
+data_mariarum<-textshape::column_to_rownames(data_mariarum, loc = 1)
+#data<-na.omit(data_mariarum)
+sex_mariarum = as.factor((data_mariarum)[,1])
+svl_mariarum = as.numeric((data_mariarum)[,3])
+fll_mariarum = as.numeric((data_mariarum)[,5])
+trl_mariarum = as.numeric((data_mariarum)[,7])
+hl_mariarum = as.numeric((data_mariarum)[,9])
+ln_mariarum = as.numeric((data_mariarum)[,11])
+log_svl_mariarum<-log(svl_mariarum)
+log_fll_mariarum<-log(fll_mariarum)
+log_trl_mariarum<-log(trl_mariarum)
+log_hl_mariarum<-log(hl_mariarum)
+log_ln_mariarum<-log(ln_mariarum)
+reg_fll_mariarum = lm(svl_mariarum ~ log_fll_mariarum) 
+reg_trl_mariarum = lm(svl_mariarum ~ log_trl_mariarum) 
+reg_hl_mariarum = lm(svl_mariarum ~ log_hl_mariarum)
+reg_ln_mariarum = lm(svl_mariarum ~ log_ln_mariarum)
+res_fll_mariarum = reg_fll_mariarum$resid
+res_trl_mariarum = reg_trl_mariarum$resid
+res_hl_mariarum = reg_hl_mariarum$resid
+res_ln_mariarum = reg_ln_mariarum$resid
+res_mariarum = data.frame(cbind(log_svl_mariarum,res_fll_mariarum,res_trl_mariarum,res_hl_mariarum,res_ln_mariarum))
+mariarum_pca<-PCA(res_mariarum)
+summary.PCA(mariarum_pca)
+mariarum_d<-  data.frame (cbind(data_mariarum$Sex,mariarum_scores))
+colnames(mariarum_d)[1] = "Sex"
+colnames(mariarum_d)[2] = "PC1"
+colnames(mariarum_d)[3] = "PC2"
+colnames(mariarum_d)[4] = "PC3"
+colnames(mariarum_d)[5] = "PC4"
+colnames(mariarum_d)[6] = "PC5"
+mariarum_d<-cbind(ICN,mariarum_d)
+mariarum_d
+write.table(mariarum_d,file = "mariarum_scores.txt")
+mariarum_scores<-read.table("mariarum_scores.txt",header = TRUE,sep = " ")
+hull_apo <- mariarum_scores %>% group_by(Sex) %>%
+  slice(chull(PC2, PC1))
+plot <- ggplot(mariarum_scores, aes(PC1,
+                                  PC2,
+                                  color = Sex))+
+  geom_point(shape = 21)
+plot<- plot + geom_polygon(data = hull_apo, alpha = 0.2,
+                           aes(fill = Sex,colour = Sex))+scale_fill_manual(values=coolors)+scale_color_manual(values = coolors)+theme_classic()+ggtitle("A. mariarum")
+plot
+ggsave("A_mariarum_hull.tiff", 
+       dpi = 600, 
+       width = 200, height = 150, unit = "mm")
+wilcox.mariarum<-wilcox.test(log_svl_mariarum~sex_mariarum)
+wilcox.mariarum
+##A. notopholis 
+data_notopholis<-read.csv("A_notopholis.csv",header = T,sep = ";")
+ICN = as.character(data_notopholis$ICN)
+data_notopholis<-textshape::column_to_rownames(data_notopholis, loc = 1)
+#data<-na.omit(data_notopholis)
+sex_notopholis = as.factor((data_notopholis)[,1])
+svl_notopholis = as.numeric((data_notopholis)[,3])
+fll_notopholis = as.numeric((data_notopholis)[,5])
+trl_notopholis = as.numeric((data_notopholis)[,7])
+hl_notopholis = as.numeric((data_notopholis)[,9])
+ln_notopholis = as.numeric((data_notopholis)[,11])
+log_svl_notopholis<-log(svl_notopholis)
+log_fll_notopholis<-log(fll_notopholis)
+log_trl_notopholis<-log(trl_notopholis)
+log_hl_notopholis<-log(hl_notopholis)
+log_ln_notopholis<-log(ln_notopholis)
+reg_fll_notopholis = lm(svl_notopholis ~ log_fll_notopholis) 
+reg_trl_notopholis = lm(svl_notopholis ~ log_trl_notopholis) 
+reg_hl_notopholis = lm(svl_notopholis ~ log_hl_notopholis)
+reg_ln_notopholis = lm(svl_notopholis ~ log_ln_notopholis)
+res_fll_notopholis = reg_fll_notopholis$resid
+res_trl_notopholis = reg_trl_notopholis$resid
+res_hl_notopholis = reg_hl_notopholis$resid
+res_ln_notopholis = reg_ln_notopholis$resid
+res_notopholis = data.frame(cbind(log_svl_notopholis,res_fll_notopholis,res_trl_notopholis,res_hl_notopholis,res_ln_notopholis))
+notopholis_pca<-PCA(res_notopholis)
+summary.PCA(notopholis_pca)
+notopholis_scores<-notopholis_pca$scores
+notopholis_d<-  data.frame (cbind(data_notopholis$Sex,notopholis_scores))
+colnames(notopholis_d)[1] = "Sex"
+colnames(notopholis_d)[2] = "PC1"
+colnames(notopholis_d)[3] = "PC2"
+colnames(notopholis_d)[4] = "PC3"
+colnames(notopholis_d)[5] = "PC4"
+colnames(notopholis_d)[6] = "PC5"
+notopholis_d<-cbind(ICN,notopholis_d)
+notopholis_d
+write.table(notopholis_d,file = "notopholis_scores.txt")
+notopholis_scores<-read.table("notopholis_scores.txt",header = TRUE,sep = " ")
+hull_apo <- notopholis_scores %>% group_by(Sex) %>%
+  slice(chull(PC2, PC1))
+plot <- ggplot(notopholis_scores, aes(PC1,
+                                  PC2,
+                                  color = Sex))+
+  geom_point(shape = 21)
+plot<- plot + geom_polygon(data = hull_apo, alpha = 0.2,
+                           aes(fill = Sex,colour = Sex))+scale_fill_manual(values=coolors)+scale_color_manual(values = coolors)+theme_classic()+ggtitle("A. notopholis")
+plot
+ggsave("A_notopholis_hull.tiff", 
+       dpi = 600, 
+       width = 200, height = 150, unit = "mm")
+wilcox.notopholis<-wilcox.test(log_svl_notopholis~sex_notopholis)
+wilcox.notopholis
+
+#A. onca
+
+data_onca<-read.csv("A_onca.csv",header = T,sep = ";")
+ICN = as.character(data_onca$ICN)
+data_onca<-textshape::column_to_rownames(data_onca, loc = 1)
+#data<-na.omit(data_onca)
+sex_onca = as.factor((data_onca)[,1])
+svl_onca = as.numeric((data_onca)[,3])
+fll_onca = as.numeric((data_onca)[,5])
+trl_onca = as.numeric((data_onca)[,7])
+hl_onca = as.numeric((data_onca)[,9])
+ln_onca = as.numeric((data_onca)[,11])
+log_svl_onca<-log(svl_onca)
+log_fll_onca<-log(fll_onca)
+log_trl_onca<-log(trl_onca)
+log_hl_onca<-log(hl_onca)
+log_ln_onca<-log(ln_onca)
+reg_fll_onca = lm(svl_onca ~ log_fll_onca) 
+reg_trl_onca = lm(svl_onca ~ log_trl_onca) 
+reg_hl_onca = lm(svl_onca ~ log_hl_onca)
+reg_ln_onca = lm(svl_onca ~ log_ln_onca)
+res_fll_onca = reg_fll_onca$resid
+res_trl_onca = reg_trl_onca$resid
+res_hl_onca = reg_hl_onca$resid
+res_ln_onca = reg_ln_onca$resid
+res_onca = data.frame(cbind(log_svl_onca,res_fll_onca,res_trl_onca,res_hl_onca))
+onca_pca<-PCA(res_onca)
+summary.PCA(onca_pca)
+
+onca_d<-  data.frame (cbind(data_onca$Sex,onca_scores))
+colnames(onca_d)[1] = "Sex"
+colnames(onca_d)[2] = "PC1"
+colnames(onca_d)[3] = "PC2"
+colnames(onca_d)[4] = "PC3"
+colnames(onca_d)[5] = "PC4"
+colnames(onca_d)[6] = "PC5"
+onca_d<-cbind(ICN,onca_d)
+onca_d
+write.table(onca_d,file = "onca_scores.txt")
+onca_scores<-read.table("onca_scores.txt",header = TRUE,sep = " ")
+hull_apo <- onca_scores %>% group_by(Sex) %>%
+  slice(chull(PC2, PC1))
+plot <- ggplot(onca_scores, aes(PC1,
+                                  PC2,
+                                  color = Sex))+
+  geom_point(shape = 21)
+plot<- plot + geom_polygon(data = hull_apo, alpha = 0.2,
+                           aes(fill = Sex,colour = Sex))+scale_fill_manual(values=coolors)+scale_color_manual(values = coolors)+theme_classic()+ggtitle("A. onca")
+plot
+ggsave("A_onca_hull.tiff", 
+       dpi = 600, 
+       width = 200, height = 150, unit = "mm")
+wilcox.onca<-wilcox.test(log_svl_onca~sex_onca)
+wilcox.onca
+##A. pinchoti
+
+data_pinchoti<-read.csv("A_pinchoti.csv",header = T,sep = ";")
+ICN = as.character(data_pinchoti$ICN)
+data_pinchoti<-textshape::column_to_rownames(data_pinchoti, loc = 1)
+#data<-na.omit(data_pinchoti)
+sex_pinchoti = as.factor((data_pinchoti)[,1])
+svl_pinchoti = as.numeric((data_pinchoti)[,3])
+fll_pinchoti = as.numeric((data_pinchoti)[,5])
+trl_pinchoti = as.numeric((data_pinchoti)[,7])
+hl_pinchoti = as.numeric((data_pinchoti)[,9])
+ln_pinchoti = as.numeric((data_pinchoti)[,11])
+log_svl_pinchoti<-log(svl_pinchoti)
+log_fll_pinchoti<-log(fll_pinchoti)
+log_trl_pinchoti<-log(trl_pinchoti)
+log_hl_pinchoti<-log(hl_pinchoti)
+log_ln_pinchoti<-log(ln_pinchoti)
+reg_fll_pinchoti = lm(svl_pinchoti ~ log_fll_pinchoti) 
+reg_trl_pinchoti = lm(svl_pinchoti ~ log_trl_pinchoti) 
+reg_hl_pinchoti = lm(svl_pinchoti ~ log_hl_pinchoti)
+reg_ln_pinchoti = lm(svl_pinchoti ~ log_ln_pinchoti)
+res_fll_pinchoti = reg_fll_pinchoti$resid
+res_trl_pinchoti = reg_trl_pinchoti$resid
+res_hl_pinchoti = reg_hl_pinchoti$resid
+res_ln_pinchoti = reg_ln_pinchoti$resid
+res_pinchoti = data.frame(cbind(log_svl_pinchoti,res_fll_pinchoti,res_trl_pinchoti,res_hl_pinchoti,res_ln_pinchoti))
+pinchoti_pca<-PCA(res_pinchoti)
+summary.PCA(pinchoti_pca)
+pinchoti_d<-  data.frame (cbind(data_pinchoti$Sex,pinchoti_scores))
+colnames(pinchoti_d)[1] = "Sex"
+colnames(pinchoti_d)[2] = "PC1"
+colnames(pinchoti_d)[3] = "PC2"
+colnames(pinchoti_d)[4] = "PC3"
+colnames(pinchoti_d)[5] = "PC4"
+colnames(pinchoti_d)[6] = "PC5"
+pinchoti_d<-cbind(ICN,pinchoti_d)
+pinchoti_d
+write.table(pinchoti_d,file = "pinchoti_scores.txt")
+pinchoti_scores<-read.table("pinchoti_scores.txt",header = TRUE,sep = " ")
+hull_apo <- pinchoti_scores %>% group_by(Sex) %>%
+  slice(chull(PC2, PC1))
+plot <- ggplot(pinchoti_scores, aes(PC1,
+                                  PC2,
+                                  color = Sex))+
+  geom_point(shape = 21)
+plot<- plot + geom_polygon(data = hull_apo, alpha = 0.2,
+                           aes(fill = Sex,colour = Sex))+scale_fill_manual(values=coolors)+scale_color_manual(values = coolors)+theme_classic()+ggtitle("A. pinchoti")
+plot
+ggsave("A_pinchoti_hull.tiff", 
+       dpi = 600, 
+       width = 200, height = 150, unit = "mm")
+
+##A.scypheus
+data_scypheus<-read.csv("A_scypheus.csv",header = T,sep = ";")
+ICN = as.character(data_scypheus$ICN)
+data_scypheus<-textshape::column_to_rownames(data_scypheus, loc = 1)
+#data<-na.omit(data_scypheus)
+sex_scypheus = as.factor((data_scypheus)[,1])
+svl_scypheus = as.numeric((data_scypheus)[,3])
+fll_scypheus = as.numeric((data_scypheus)[,5])
+trl_scypheus = as.numeric((data_scypheus)[,7])
+hl_scypheus = as.numeric((data_scypheus)[,9])
+ln_scypheus = as.numeric((data_scypheus)[,11])
+log_svl_scypheus<-log(svl_scypheus)
+log_fll_scypheus<-log(fll_scypheus)
+log_trl_scypheus<-log(trl_scypheus)
+log_hl_scypheus<-log(hl_scypheus)
+log_ln_scypheus<-log(ln_scypheus)
+reg_fll_scypheus = lm(svl_scypheus ~ log_fll_scypheus) 
+reg_trl_scypheus = lm(svl_scypheus ~ log_trl_scypheus) 
+reg_hl_scypheus = lm(svl_scypheus ~ log_hl_scypheus)
+reg_ln_scypheus = lm(svl_scypheus ~ log_ln_scypheus)
+res_fll_scypheus = reg_fll_scypheus$resid
+res_trl_scypheus = reg_trl_scypheus$resid
+res_hl_scypheus = reg_hl_scypheus$resid
+res_ln_scypheus = reg_ln_scypheus$resid
+res_scypheus = data.frame(cbind(log_svl_scypheus,res_fll_scypheus,res_trl_scypheus,res_hl_scypheus,res_ln_scypheus))
+scypheus_pca<-PCA(res_scypheus)
+summary.PCA(scypheus_pca)
+scypheus_d<-  data.frame (cbind(data_scypheus$Sex,scypheus_scores))
+colnames(scypheus_d)[1] = "Sex"
+colnames(scypheus_d)[2] = "PC1"
+colnames(scypheus_d)[3] = "PC2"
+colnames(scypheus_d)[4] = "PC3"
+colnames(scypheus_d)[5] = "PC4"
+colnames(scypheus_d)[6] = "PC5"
+scypheus_d<-cbind(ICN,scypheus_d)
+scypheus_d
+write.table(scypheus_d,file = "scypheus_scores.txt")
+scypheus_scores<-read.table("scypheus_scores.txt",header = TRUE,sep = " ")
+hull_apo <- scypheus_scores %>% group_by(Sex) %>%
+  slice(chull(PC2, PC1))
+plot <- ggplot(scypheus_scores, aes(PC1,
+                                  PC2,
+                                  color = Sex))+
+  geom_point(shape = 21)
+plot<- plot + geom_polygon(data = hull_apo, alpha = 0.2,
+                           aes(fill = Sex,colour = Sex))+scale_fill_manual(values=coolors)+scale_color_manual(values = coolors)+theme_classic()+ggtitle("A. scypheus")
+plot
+ggsave("A_scypheus_hull.tiff", 
+       dpi = 600, 
+       width = 200, height = 150, unit = "mm")
+wilcox.scypheus<-wilcox.test(log_svl_scypheus~sex_scypheus)
+wilcox.scypheus
+##A.tolimensis
+
+data_tolimensis<-read.csv("A_tolimensis.csv",header = T,sep = ";")
+ICN = as.character(data_tolimensis$ICN)
+data_tolimensis<-textshape::column_to_rownames(data_tolimensis, loc = 1)
+#data<-na.omit(data_tolimensis)
+sex_tolimensis = as.factor((data_tolimensis)[,1])
+svl_tolimensis = as.numeric((data_tolimensis)[,3])
+fll_tolimensis = as.numeric((data_tolimensis)[,5])
+trl_tolimensis = as.numeric((data_tolimensis)[,7])
+hl_tolimensis = as.numeric((data_tolimensis)[,9])
+ln_tolimensis = as.numeric((data_tolimensis)[,11])
+log_svl_tolimensis<-log(svl_tolimensis)
+log_fll_tolimensis<-log(fll_tolimensis)
+log_trl_tolimensis<-log(trl_tolimensis)
+log_hl_tolimensis<-log(hl_tolimensis)
+log_ln_tolimensis<-log(ln_tolimensis)
+reg_fll_tolimensis = lm(svl_tolimensis ~ log_fll_tolimensis) 
+reg_trl_tolimensis = lm(svl_tolimensis ~ log_trl_tolimensis) 
+reg_hl_tolimensis = lm(svl_tolimensis ~ log_hl_tolimensis)
+reg_ln_tolimensis = lm(svl_tolimensis ~ log_ln_tolimensis)
+res_fll_tolimensis = reg_fll_tolimensis$resid
+res_trl_tolimensis = reg_trl_tolimensis$resid
+res_hl_tolimensis = reg_hl_tolimensis$resid
+res_ln_tolimensis = reg_ln_tolimensis$resid
+res_tolimensis = data.frame(cbind(log_svl_tolimensis,res_fll_tolimensis,res_trl_tolimensis,res_hl_tolimensis,res_ln_tolimensis))
+tolimensis_pca<-PCA(res_tolimensis,)
+summary.PCA(tolimensis_pca)
+tolimensis_d<-  data.frame (cbind(data_tolimensis$Sex,tolimensis_scores))
+colnames(tolimensis_d)[1] = "Sex"
+colnames(tolimensis_d)[2] = "PC1"
+colnames(tolimensis_d)[3] = "PC2"
+colnames(tolimensis_d)[4] = "PC3"
+colnames(tolimensis_d)[5] = "PC4"
+#colnames(tolimensis_d)[6] = "PC5"
+tolimensis_d<-cbind(ICN,tolimensis_d)
+tolimensis_d
+write.table(tolimensis_d,file = "tolimensis_scores.txt")
+tolimensis_scores<-read.table("tolimensis_scores.txt",header = TRUE,sep = " ")
+hull_apo <- tolimensis_scores %>% group_by(Sex) %>%
+  slice(chull(PC2, PC1))
+plot <- ggplot(tolimensis_scores, aes(PC1,
+                                  PC2,
+                                  color = Sex))+
+  geom_point(shape = 21)
+plot<- plot + geom_polygon(data = hull_apo, alpha = 0.2,
+                           aes(fill = Sex,colour = Sex))+scale_fill_manual(values=coolors)+scale_color_manual(values = coolors)+theme_classic()+ggtitle("A. tolimensis")
+plot
+ggsave("A_tolimensis_hull.tiff", 
+       dpi = 600, 
+       width = 200, height = 150, unit = "mm")
+wilcox.tolimensis<-wilcox.test(log_svl_tolimensis~sex_tolimensis)
+wilcox.tolimensis
+#A. ventrimaculatus 
+data_ventrimaculatus<-read.csv("A_ventrimaculatus.csv",header = T,sep = ";")
+ICN = as.character(data_ventrimaculatus$ICN)
+data_ventrimaculatus<-textshape::column_to_rownames(data_ventrimaculatus, loc = 1)
+#data<-na.omit(data_ventrimaculatus)
+sex_ventrimaculatus = as.factor((data_ventrimaculatus)[,1])
+svl_ventrimaculatus = as.numeric((data_ventrimaculatus)[,3])
+fll_ventrimaculatus = as.numeric((data_ventrimaculatus)[,4])
+trl_ventrimaculatus = as.numeric((data_ventrimaculatus)[,5])
+hl_ventrimaculatus = as.numeric((data_ventrimaculatus)[,6])
+ln_ventrimaculatus = as.numeric((data_ventrimaculatus)[,7])
+log_svl_ventrimaculatus<-log(svl_ventrimaculatus)
+log_fll_ventrimaculatus<-log(fll_ventrimaculatus)
+log_trl_ventrimaculatus<-log(trl_ventrimaculatus)
+log_hl_ventrimaculatus<-log(hl_ventrimaculatus)
+log_ln_ventrimaculatus<-log(ln_ventrimaculatus)
+reg_fll_ventrimaculatus = lm(svl_ventrimaculatus ~ log_fll_ventrimaculatus) 
+reg_trl_ventrimaculatus = lm(svl_ventrimaculatus ~ log_trl_ventrimaculatus) 
+reg_hl_ventrimaculatus = lm(svl_ventrimaculatus ~ log_hl_ventrimaculatus)
+reg_ln_ventrimaculatus = lm(svl_ventrimaculatus ~ log_ln_ventrimaculatus)
+res_fll_ventrimaculatus = reg_fll_ventrimaculatus$resid
+res_trl_ventrimaculatus = reg_trl_ventrimaculatus$resid
+res_hl_ventrimaculatus = reg_hl_ventrimaculatus$resid
+res_ln_ventrimaculatus = reg_ln_ventrimaculatus$resid
+res_ventrimaculatus = data.frame(cbind(log_svl_ventrimaculatus,res_fll_ventrimaculatus,res_trl_ventrimaculatus,res_hl_ventrimaculatus,res_ln_ventrimaculatus))
+ventrimaculatus_pca<-PCA(res_ventrimaculatus)
+summary.PCA(ventrimaculatus_pca)
+ventrimaculatus_d<-  data.frame (cbind(data_ventrimaculatus$Sex,ventrimaculatus_scores))
+colnames(ventrimaculatus_d)[1] = "Sex"
+colnames(ventrimaculatus_d)[2] = "PC1"
+colnames(ventrimaculatus_d)[3] = "PC2"
+colnames(ventrimaculatus_d)[4] = "PC3"
+colnames(ventrimaculatus_d)[5] = "PC4"
+colnames(ventrimaculatus_d)[6] = "PC5"
+ventrimaculatus_d<-cbind(ICN,ventrimaculatus_d)
+ventrimaculatus_d
+write.table(ventrimaculatus_d,file = "ventrimaculatus_scores.txt")
+ventrimaculatus_scores<-read.table("ventrimaculatus_scores.txt",header = TRUE,sep = " ")
+hull_apo <- ventrimaculatus_scores %>% group_by(Sex) %>%
+  slice(chull(PC2, PC1))
+plot <- ggplot(ventrimaculatus_scores, aes(PC1,
+                                  PC2,
+                                  color = Sex))+
+  geom_point(shape = 21)
+plot<- plot + geom_polygon(data = hull_apo, alpha = 0.2,
+                           aes(fill = Sex,colour = Sex))+scale_fill_manual(values=coolors)+scale_color_manual(values = coolors)+theme_classic()+ggtitle("A. ventrimaculatus")
+plot
+ggsave("A_ventrimaculatus_hull.tiff", 
+       dpi = 600, 
+       width = 200, height = 150, unit = "mm")
+wilcox.ventrimaculatus<-wilcox.test(log_svl_ventrimaculatus~sex_ventrimaculatus)
+wilcox.ventrimaculatus
+##A. concolor
+data_concolor<-read.csv("A_concolor.csv",header = T,sep = ";")
+ICN = as.character(data_concolor$ICN)
+data_concolor<-textshape::column_to_rownames(data_concolor, loc = 1)
+#data<-na.omit(data_concolor)
+sex_concolor = as.factor((data_concolor)[,1])
+svl_concolor = as.numeric((data_concolor)[,3])
+fll_concolor = as.numeric((data_concolor)[,5])
+trl_concolor = as.numeric((data_concolor)[,7])
+hl_concolor = as.numeric((data_concolor)[,9])
+ln_concolor = as.numeric((data_concolor)[,11])
+log_svl_concolor<-log(svl_concolor)
+log_fll_concolor<-log(fll_concolor)
+log_trl_concolor<-log(trl_concolor)
+log_hl_concolor<-log(hl_concolor)
+log_ln_concolor<-log(ln_concolor)
+reg_fll_concolor = lm(svl_concolor ~ log_fll_concolor) 
+reg_trl_concolor = lm(svl_concolor ~ log_trl_concolor) 
+reg_hl_concolor = lm(svl_concolor ~ log_hl_concolor)
+reg_ln_concolor = lm(svl_concolor ~ log_ln_concolor)
+res_fll_concolor = reg_fll_concolor$resid
+res_trl_concolor = reg_trl_concolor$resid
+res_hl_concolor = reg_hl_concolor$resid
+res_ln_concolor = reg_ln_concolor$resid
+res_concolor = data.frame(cbind(log_svl_concolor,res_fll_concolor,res_trl_concolor,res_hl_concolor,res_ln_concolor))
+concolor_pca<-PCA(res_concolor)
+summary.PCA(concolor_pca)
+concolor_d<-  data.frame (cbind(data_concolor$Sex,concolor_scores))
+colnames(concolor_d)[1] = "Sex"
+colnames(concolor_d)[2] = "PC1"
+colnames(concolor_d)[3] = "PC2"
+colnames(concolor_d)[4] = "PC3"
+colnames(concolor_d)[5] = "PC4"
+colnames(concolor_d)[6] = "PC5"
+concolor_d<-cbind(ICN,concolor_d)
+concolor_d
+write.table(concolor_d,file = "concolor_scores.txt")
+concolor_scores<-read.table("concolor_scores.txt",header = TRUE,sep = " ")
+hull_apo <- concolor_scores %>% group_by(Sex) %>%
+  slice(chull(PC2, PC1))
+plot <- ggplot(concolor_scores, aes(PC1,
+                                  PC2,
+                                  color = Sex))+
+  geom_point(shape = 21)
+plot<- plot + geom_polygon(data = hull_apo, alpha = 0.2,
+                           aes(fill = Sex,colour = Sex))+scale_fill_manual(values=coolors)+scale_color_manual(values = coolors)+theme_classic()+ggtitle("A. concolor")
+plot
+ggsave("A_concolor_hull.tiff", 
+       dpi = 600, 
+       width = 200, height = 150, unit = "mm")
+wilcox.concolor<-wilcox.test(log_svl_concolor~sex_concolor)
+wilcox.concolor
+
+#tropidogaster
+data_tropidogaster<-read.csv("A_tropidogaster.csv",header = T,sep = ";")
+ICN = as.character(data_tropidogaster$ICN)
+data_tropidogaster<-textshape::column_to_rownames(data_tropidogaster, loc = 1)
+#data<-na.omit(data_tropidogaster)
+sex_tropidogaster = as.factor((data_tropidogaster)[,1])
+svl_tropidogaster = as.numeric((data_tropidogaster)[,2])
+fll_tropidogaster = as.numeric((data_tropidogaster)[,4])
+trl_tropidogaster = as.numeric((data_tropidogaster)[,6])
+hl_tropidogaster = as.numeric((data_tropidogaster)[,9])
+ln_tropidogaster = as.numeric((data_tropidogaster)[,10])
+log_svl_tropidogaster<-log(svl_tropidogaster)
+log_fll_tropidogaster<-log(fll_tropidogaster)
+log_trl_tropidogaster<-log(trl_tropidogaster)
+log_hl_tropidogaster<-log(hl_tropidogaster)
+log_ln_tropidogaster<-log(ln_tropidogaster)
+reg_fll_tropidogaster = lm(svl_tropidogaster ~ log_fll_tropidogaster) 
+reg_trl_tropidogaster = lm(svl_tropidogaster ~ log_trl_tropidogaster) 
+reg_hl_tropidogaster = lm(svl_tropidogaster ~ log_hl_tropidogaster)
+reg_ln_tropidogaster = lm(svl_tropidogaster ~ log_ln_tropidogaster)
+res_fll_tropidogaster = reg_fll_tropidogaster$resid
+res_trl_tropidogaster = reg_trl_tropidogaster$resid
+res_hl_tropidogaster = reg_hl_tropidogaster$resid
+res_ln_tropidogaster = reg_ln_tropidogaster$resid
+res_tropidogaster = data.frame(cbind(log_svl_tropidogaster,res_fll_tropidogaster,res_trl_tropidogaster,res_hl_tropidogaster,res_ln_tropidogaster))
+tropidogaster_pca<-PCA(res_tropidogaster)
+summary.PCA(tropidogaster_pca)
+tropidogaster_d<-  data.frame (cbind(data_tropidogaster$Sex,tropidogaster_scores))
+colnames(tropidogaster_d)[1] = "Sex"
+colnames(tropidogaster_d)[2] = "PC1"
+colnames(tropidogaster_d)[3] = "PC2"
+colnames(tropidogaster_d)[4] = "PC3"
+colnames(tropidogaster_d)[5] = "PC4"
+colnames(tropidogaster_d)[6] = "PC5"
+tropidogaster_d<-cbind(ICN,tropidogaster_d)
+tropidogaster_d
+write.table(tropidogaster_d,file = "tropidogaster_scores.txt")
+tropidogaster_scores<-read.table("tropidogaster_scores.txt",header = TRUE,sep = " ")
+hull_apo <- tropidogaster_scores %>% group_by(Sex) %>%
+  slice(chull(PC2, PC1))
+plot <- ggplot(tropidogaster_scores, aes(PC1,
+                                  PC2,
+                                  color = Sex))+
+  geom_point(shape = 21)
+plot<- plot + geom_polygon(data = hull_apo, alpha = 0.2,
+                           aes(fill = Sex,colour = Sex))+scale_fill_manual(values=coolors)+scale_color_manual(values = coolors)+theme_classic()+ggtitle("A. tropidogaster")
+plot
+ggsave("A_tropidogaster_hull.tiff", 
+       dpi = 600, 
+       width = 200, height = 150, unit = "mm")
+wilcox.tropidigaster<-wilcox.test(log_svl_tropidogaster~sex_tropidogaster)
+wilcox.tropidigaster
+```
+
+
+
+
